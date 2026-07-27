@@ -94,17 +94,19 @@ CREATE TABLE IF NOT EXISTS ANOMALIES_SUPERVISEUR (
     FOREIGN KEY (ID_SUPERVISEUR) REFERENCES UTILISATEURS(ID_EMPLOYÉ)
 );
 
--- Triggers Anti-Mélange : Empêchent de stocker un code-barres différent dans un casier déjà occupé
+-- Triggers Anti-Mélange : Empêchent de stocker deux pointures différentes d'un MÊME modèle dans un casier
 CREATE TRIGGER IF NOT EXISTS ANTI_MELANGE_STOCK_INSERT
 BEFORE INSERT ON STOCK_EMPLACEMENTS
 FOR EACH ROW 
 BEGIN
-    SELECT RAISE(ABORT, 'Erreur : Règle Anti-Mélange violée ! Ce casier contient déjà une autre référence ou pointure.')
+    SELECT RAISE(ABORT, 'Erreur : Règle Anti-Mélange violée ! Ce casier contient déjà une autre pointure du MÊME modèle.')
     WHERE EXISTS (
-        SELECT 1 FROM STOCK_EMPLACEMENTS
-        WHERE REF_EMPLACEMENT = NEW.REF_EMPLACEMENT 
-          AND CODE_BARRE != NEW.CODE_BARRE
-          AND QUANTITE > 0
+        SELECT 1 FROM STOCK_EMPLACEMENTS S
+        JOIN ARTICLES_SKU A ON S.CODE_BARRE = A.CODE_BARRE
+        WHERE S.REF_EMPLACEMENT = NEW.REF_EMPLACEMENT 
+          AND S.CODE_BARRE != NEW.CODE_BARRE
+          AND S.QUANTITE > 0
+          AND A.ID_MODELE = (SELECT ID_MODELE FROM ARTICLES_SKU WHERE CODE_BARRE = NEW.CODE_BARRE)
     );
 END;
 
@@ -114,10 +116,12 @@ FOR EACH ROW
 BEGIN
     SELECT RAISE(ABORT, 'Erreur : Règle Anti-Mélange violée lors de la modification du casier !')
     WHERE EXISTS (
-        SELECT 1 FROM STOCK_EMPLACEMENTS
-        WHERE REF_EMPLACEMENT = NEW.REF_EMPLACEMENT 
-          AND CODE_BARRE != NEW.CODE_BARRE
-          AND ID_STOCK != NEW.ID_STOCK
-          AND QUANTITE > 0
+        SELECT 1 FROM STOCK_EMPLACEMENTS S
+        JOIN ARTICLES_SKU A ON S.CODE_BARRE = A.CODE_BARRE
+        WHERE S.REF_EMPLACEMENT = NEW.REF_EMPLACEMENT 
+          AND S.CODE_BARRE != NEW.CODE_BARRE
+          AND S.ID_STOCK != NEW.ID_STOCK
+          AND S.QUANTITE > 0
+          AND A.ID_MODELE = (SELECT ID_MODELE FROM ARTICLES_SKU WHERE CODE_BARRE = NEW.CODE_BARRE)
     );
 END;
